@@ -1,0 +1,107 @@
+---
+title: "P8131_HW3"
+output: html_document
+date: "2023-03-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### QUESTION 1
+
+#### (a) Fit a prospective model.
+
+The two variables are age(continuous) and alcohol consumption(binomial), the outcome is diseased(case) or undiseased(control)(binomial).
+
+```{r}
+cancer = 
+  data.frame(
+    age = rep(c(25, 35, 45, 55, 65, 75), 2),
+    al_con = c(rep('0-79',6), rep('80+', 6)),
+    case = c(0, 5, 21, 34, 36, 8, 1, 4, 25, 42, 19, 5),
+    control = c(106, 164, 138, 139, 88, 31, 9, 26, 29, 27, 18, 0))
+cancer
+logit_retro = glm(cbind(case, control)~ al_con + age, family = binomial(link='logit'), data = cancer)
+summary(logit_retro)
+
+p_v = 1-pchisq(logit_retro$deviance, 24-3)
+```
+Here we fitted a logistic model using X1=alcohol_consumption as a dummy variable and X2=age as a continuous variable. The intercept β0=-5.02 while β1=1.78, β2=0.06. Indicating that the unit change of log odds when alcohol consumption changes from 0-79g to 80+g holding age fixed is 1.78, and per unit change of age (10 years) holding alcohol consumption fixed is 0.06. The risk of cancer increases with alcohol consumption and age. According to Pearson Chi-square test statistics, this model is a good fit.
+
+#### (b) Compare two models
+
+When the odds ratio relating alcohol consumption is 1, the coefficient relating to alcohol is 0. And when different age groups have different odds, age groups should be dummy variables with different coefficients. Therefore, we first mutate age into a factor variable, then build two models with or without alcohol consumption.
+
+```{r}
+cancer$age = as.factor(cancer$age)
+
+M0 = M1 = glm(cbind(case, control)~ age, family = binomial(link='logit'), data = cancer)
+M1 = glm(cbind(case, control)~ age + al_con, family = binomial(link='logit'), data = cancer)
+summary(M0)
+summary(M1)
+```
+M0 and M1 are nested with M1 being the larger model. For model selection, we use deviance analysis.
+
+```{r}
+del_dev = M0$deviance - M1$deviance
+p_v = 1 - pchisq(del_dev, 1)
+p_v
+```
+
+According to the deviance analysis assuming that M0 is true, our p_value is less than 0.05, indicating that we reject the smaller model M0 and M1 is better.
+
+
+### QUESTION 2
+
+#### (a) Fit a logistic model
+
+```{r}
+ger = 
+  data.frame(
+    seed = c(rep('O.75', 11), rep('O.73', 10)),
+    media = c(rep('Bean', 5), rep('Cucm', 6), rep('Bean', 5), rep('Cucm', 5)),
+    germed = c(10, 23, 23, 26, 17, 5, 53, 55, 32, 46, 10, 8, 10, 8, 23, 0, 3, 22, 15, 32, 3),
+    num = c(39, 62, 81, 51, 39, 6, 74, 72, 51, 79, 13, 16, 30, 28, 45, 4, 12, 41, 30, 51, 7))
+logit = glm(cbind(germed, num-germed) ~ seed+media, family = binomial(link='logit'), data = ger)
+summary(logit)
+
+p_v = 1-pchisq(logit$deviance, 21-3)
+```
+Here we fitted a logistic model of germination rates using X1=type_of_seed and X2=type_of_media. The intercept β0=-0.70 while β1=0.27, β2=1.06. Indicating that the unit change of log odds when seed changes from O.a73 to O.a75 holding media fixed is 0.27, and when media changes from bean to cucumber holding type of seeds fixed is 1.06. The possibility of germination is higher with O.a75 seed and cucumber media. But according to Pearson Chi-square test statistic, this is not a good fit.
+
+#### (b) Check for dispersion.
+
+```{r}
+G.stat = sum(residuals(logit, type='pearson')^2)
+phi = G.stat/(21-3)
+phi
+tilde.phi = logit$deviance/logit$df.residual
+tilde.phi
+```
+
+The p-value from Pearson Chi-square test indicates bad model-fitting and there is dispersion. The estimate of dispersion parameter is `r phi`.
+
+```{r}
+res=residuals(logit,type='pearson')
+plot(qnorm((21+1:21+0.5)/(2*21+1.125)),sort(abs(res)),
+     xlab='Expected Half-Normal Order Stats',
+     ylab='Ordered Abs Pearson Residuals', 
+     ylim=c(0,5),
+     xlim=c(0,5))
+abline(a=0,b=1)
+abline(a=0,b=sqrt(phi),lty=2)
+```
+The updated model with dispersion is:
+
+```{r}
+summary(logit, dispersion=phi)
+```
+
+#### (c)
+
+The assumptions made from binomial distributions are:
+
+*(1)
+
+*(2)
